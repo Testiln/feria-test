@@ -1,7 +1,18 @@
 -- Enable necessary extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Users table (extends Supabase auth)
+-- Admin Users table (for admin authentication)
+CREATE TABLE IF NOT EXISTS admin_users (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  nombre VARCHAR(255) NOT NULL,
+  usuario VARCHAR(100) NOT NULL UNIQUE,
+  pwd TEXT NOT NULL,
+  isActive BOOLEAN DEFAULT true,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Users table (extends Supabase auth) - for regular employees
 CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   full_name VARCHAR(255) NOT NULL,
@@ -66,6 +77,7 @@ INSERT INTO configuration (key, value, description) VALUES
 ON CONFLICT (key) DO NOTHING;
 
 -- Create indexes for better performance
+CREATE INDEX IF NOT EXISTS idx_admin_users_usuario ON admin_users(usuario);
 CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
 CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id);
@@ -73,11 +85,16 @@ CREATE INDEX IF NOT EXISTS idx_order_items_product_id ON order_items(product_id)
 CREATE INDEX IF NOT EXISTS idx_products_code ON products(code);
 
 -- Enable Row Level Security (RLS)
+ALTER TABLE admin_users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE order_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE configuration ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies for admin_users (service role only)
+CREATE POLICY "Only service role can query admin_users" ON admin_users
+  FOR ALL USING (false);
 
 -- RLS Policies for users
 CREATE POLICY "Users can view their own profile" ON users
